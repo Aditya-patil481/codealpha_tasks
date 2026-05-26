@@ -4,9 +4,9 @@
 
 using namespace std;
 
-// ==========================
+ 
 // Transaction Class
-// ==========================
+ 
 class Transaction {
 public:
     string type;
@@ -22,9 +22,9 @@ public:
     }
 };
 
-// ==========================
+ 
 // Account Class
-// ==========================
+ 
 class Account {
 private:
     string accountNumber;
@@ -96,9 +96,9 @@ public:
     }
 };
 
-// ==========================
+ 
 // Customer Class
-// ==========================
+ 
 class Customer {
 private:
     int customerId;
@@ -142,9 +142,9 @@ public:
     }
 };
 
-// ==========================
+ 
 // Main Function
-// ==========================
+ 
 int main() {
 
     vector<Customer> customers;
@@ -172,9 +172,9 @@ int main() {
         cout << "\nEnter Choice : ";
         cin >> mainChoice;
 
-        // =====================================
+        
         // CUSTOMER MANAGEMENT
-        // =====================================
+  
         if (mainChoice == 1) {
 
             int choice;
@@ -250,9 +250,9 @@ int main() {
             } while (choice != 0);
         }
 
-        // =====================================
+       
         // ACCOUNT MANAGEMENT
-        // =====================================
+        
         else if (mainChoice == 2) {
 
             int choice;
@@ -312,9 +312,9 @@ int main() {
             } while (choice != 0);
         }
 
-        // =====================================
+        
         // TRANSACTIONS
-        // =====================================
+ 
         else if (mainChoice == 3) {
 
             int choice;
@@ -396,9 +396,9 @@ int main() {
             } while (choice != 0);
         }
 
-        // =====================================
+       
         // REPORTS & VIEWS
-        // =====================================
+     
         else if (mainChoice == 4) {
  
 
@@ -417,9 +417,9 @@ int main() {
         cout << "\nEnter Choice : ";
         cin >> choice;
 
-        // =================================
+       
         // Transaction History
-        // =================================
+  
         if (choice == 1) {
 
             string accNo;
@@ -452,10 +452,9 @@ int main() {
                 cout << "Account Not Found\n";
             }
         }
-
-        // =================================
+ 
         // Balance Enquiry
-        // =================================
+   
         else if (choice == 2) {
 
             string accNo;
@@ -484,9 +483,9 @@ int main() {
             }
         }
 
-        // =================================
+  
         // List All Customers
-        // =================================
+  
         else if (choice == 3) {
 
             if (customers.size() == 0) {
@@ -506,9 +505,9 @@ int main() {
 }
         
 
-        // =====================================
+    
         // EXIT
-        // =====================================
+ 
         else if (mainChoice == 0) {
 
             cout << "\nThank You\n";
