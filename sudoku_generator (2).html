@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sudoku Game and Puzzle Generator</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --paper: #f2f5f7; --panel: #ffffff; --ink: #13212c; --muted: #55687a;
+    --line-thin: #b4c2cd; --line-thick: #13212c; --cell-alt: #e9eff3;
+    --given: #13212c; --entry: #0b6fa8; --select: #ffe9a8; --same: #cfe8ff;
+    --reveal: #0b7a6e; --bad-bg: #ffd9d6; --bad-ink: #b3261e; --win: #1b7f4b;
+    --accent: #1f4fd8; --accent-ink: #ffffff; --focus: #f59e0b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0f1a22; --panel: #16242e; --ink: #e6eef4; --muted: #93a8b8;
+      --line-thin: #3a4f5f; --line-thick: #cfe0ec; --cell-alt: #1b2d39;
+      --given: #e6eef4; --entry: #7cc4f5; --select: #5a4a10; --same: #1f3d5c;
+      --reveal: #4fd1bd; --bad-bg: #5a2420; --bad-ink: #ffb4ab; --win: #5fd69a;
+      --accent: #6c93ff; --accent-ink: #0b1220;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--paper); color: var(--ink); font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; line-height: 1.5; min-height: 100vh; padding: 28px 16px 48px; }
+  main { max-width: 940px; margin: 0 auto; }
+  h1 { font-size: 1.7rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .lead { color: var(--muted); margin: 0 0 22px; max-width: 62ch; }
+  .layout { display: grid; grid-template-columns: minmax(0, 480px) minmax(0, 1fr); gap: 28px; align-items: start; }
+  @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
+
+  .board-wrap { background: var(--panel); padding: 14px; border-radius: 6px; border: 1px solid var(--line-thin); position: relative; }
+  .board-wrap.won { border-color: var(--win); box-shadow: 0 0 0 3px var(--win); }
+  table.board { border-collapse: collapse; width: 100%; table-layout: fixed; border: 3px solid var(--line-thick); user-select: none; -webkit-user-select: none; }
+  .board td { aspect-ratio: 1 / 1; text-align: center; vertical-align: middle; padding: 0; border: 1px solid var(--line-thin); font-size: var(--cell-font, 1.8rem); font-variant-numeric: tabular-nums; font-weight: 600; color: var(--entry); cursor: pointer; }
+  .board td.given { color: var(--given); cursor: default; }
+  .board td.box-r { border-right: 3px solid var(--line-thick); }
+  .board td.box-b { border-bottom: 3px solid var(--line-thick); }
+  .board td.alt { background: var(--cell-alt); }
+  .board td.same { background: var(--same); }
+  .board td.sel { background: var(--select); }
+  .board td.reveal { color: var(--reveal); font-weight: 500; }
+  .board td.bad { background: var(--bad-bg); color: var(--bad-ink); }
+
+  .banner { display: none; margin-top: 12px; padding: 12px 14px; border-radius: 5px; border: 2px solid var(--win); color: var(--win); font-weight: 700; font-size: 1.15rem; }
+  .banner.show { display: block; }
+  .banner small { display: block; font-weight: 400; color: var(--muted); font-size: 0.92rem; }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 14px; }
+  label { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; color: var(--muted); }
+  select, button { font: inherit; border-radius: 5px; border: 1px solid var(--line-thin); padding: 9px 14px; background: var(--panel); color: var(--ink); cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  .timer { font-variant-numeric: tabular-nums; color: var(--muted); margin: 0 0 10px; }
+  .pad { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; max-width: 360px; }
+  .pad button { padding: 12px 0; font-size: 1.15rem; font-weight: 600; }
+
+  h2 { font-size: 1.05rem; margin: 22px 0 6px; }
+  textarea { width: 100%; font-family: ui-monospace, Consolas, "Courier New", monospace; font-size: 1.1rem; letter-spacing: 0.18em; line-height: 1.5; padding: 12px; border-radius: 5px; border: 1px solid var(--line-thin); background: var(--panel); color: var(--ink); resize: none; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+  .status { color: var(--muted); font-size: 0.92rem; min-height: 1.4em; }
+  ol { padding-left: 1.2rem; margin: 6px 0 0; color: var(--muted); }
+  ol li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Sudoku</h1>
+  <p class="lead">Play the puzzle here, or copy it into your C++ solver. Pick a grid size, press New puzzle, then click a cell and type a number. Stuck? Use Show solution.</p>
+
+  <div class="layout">
+    <div>
+      <div class="board-wrap" id="wrap">
+        <table class="board" id="board" aria-label="Sudoku board"></table>
+      </div>
+      <div class="banner" id="banner" role="status" aria-live="polite"></div>
+    </div>
+
+    <div>
+      <div class="controls">
+        <label>Grid size
+          <select id="size">
+            <option value="4">4 x 4</option>
+            <option value="6">6 x 6</option>
+            <option value="9" selected>9 x 9</option>
+          </select>
+        </label>
+        <label>Difficulty
+          <select id="level">
+            <option value="easy">Easy</option>
+            <option value="medium" selected>Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </label>
+        <button class="primary" id="newBtn">New puzzle</button>
+        <button id="solBtn" aria-pressed="false">Show solution</button>
+      </div>
+
+      <p class="timer" id="timer" aria-live="off">Time 00:00</p>
+      <div class="pad" id="pad" aria-label="Number pad"></div>
+
+      <h2>Puzzle text for the C++ solver</h2>
+      <textarea id="out" rows="9" readonly spellcheck="false" aria-label="Puzzle text, one row per line"></textarea>
+      <div class="row">
+        <button class="primary" id="copyBtn">Copy puzzle</button>
+        <span class="status" id="status" role="status" aria-live="polite"></span>
+      </div>
+
+      <h2>Using it with the C++ solver</h2>
+      <ol>
+        <li>Run the C++ program and choose the same grid size you picked here.</li>
+        <li>Press <strong>Copy puzzle</strong>, paste it into the program and press Enter.</li>
+      </ol>
+      <p class="status">0 marks an empty cell. The copied text is the original puzzle, not your moves.</p>
+    </div>
+  </div>
+</main>
+
+<script>
+/* CORE START */
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function canPlace(g, N, br, bc, r, c, v) {
+  for (let i = 0; i < N; i++) if (g[r][i] === v || g[i][c] === v) return false;
+  const sr = r - (r % br), sc = c - (c % bc);
+  for (let i = 0; i < br; i++) for (let j = 0; j < bc; j++) if (g[sr + i][sc + j] === v) return false;
+  return true;
+}
+/* Picks the empty cell with the fewest candidates (keeps the search fast). */
+function bestCell(g, N, br, bc) {
+  let best = null, bestN = N + 1;
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    if (g[r][c] !== 0) continue;
+    let n = 0;
+    for (let v = 1; v <= N; v++) if (canPlace(g, N, br, bc, r, c, v)) n++;
+    if (n < bestN) { bestN = n; best = [r, c]; if (n === 0) return best; }
+  }
+  return best;
+}
+function fillFull(g, N, br, bc) {
+  const cell = bestCell(g, N, br, bc);
+  if (!cell) return true;
+  const [r, c] = cell;
+  const order = shuffle(Array.from({ length: N }, (_, i) => i + 1));
+  for (const v of order) {
+    if (canPlace(g, N, br, bc, r, c, v)) {
+      g[r][c] = v;
+      if (fillFull(g, N, br, bc)) return true;
+      g[r][c] = 0;
+    }
+  }
+  return false;
+}
+function countSolutions(g, N, br, bc, limit) {
+  const cell = bestCell(g, N, br, bc);
+  if (!cell) return 1;
+  const [r, c] = cell;
+  let total = 0;
+  for (let v = 1; v <= N; v++) {
+    if (canPlace(g, N, br, bc, r, c, v)) {
+      g[r][c] = v;
+      total += countSolutions(g, N, br, bc, limit - total);
+      g[r][c] = 0;
+      if (total >= limit) break;
+    }
+  }
+  return total;
+}
+function generate(N, br, bc, clues) {
+  const solution = Array.from({ length: N }, () => Array(N).fill(0));
+  fillFull(solution, N, br, bc);
+  const puzzle = solution.map(row => row.slice());
+  const cells = shuffle(Array.from({ length: N * N }, (_, i) => i));
+  let left = N * N;
+  for (const idx of cells) {
+    if (left <= clues) break;
+    const r = Math.floor(idx / N), c = idx % N;
+    const keep = puzzle[r][c];
+    puzzle[r][c] = 0;
+    if (countSolutions(puzzle.map(x => x.slice()), N, br, bc, 2) === 1) left--;
+    else puzzle[r][c] = keep;
+  }
+  return { puzzle, solution };
+}
+function toText(g) { return g.map(row => row.join('')).join('\n'); }
+/* CORE END */
+
+const CONFIG = {
+  4: { br: 2, bc: 2, font: '2.2rem', clues: { easy: 10, medium: 8, hard: 6 } },
+  6: { br: 2, bc: 3, font: '2rem',   clues: { easy: 22, medium: 18, hard: 14 } },
+  9: { br: 3, bc: 3, font: 'clamp(1.1rem, 4.4vw, 1.8rem)', clues: { easy: 40, medium: 32, hard: 26 } },
+};
+const $ = id => document.getElementById(id);
+const boardEl = $('board'), wrapEl = $('wrap'), bannerEl = $('banner'), outEl = $('out'), statusEl = $('status');
+const solBtn = $('solBtn'), newBtn = $('newBtn'), copyBtn = $('copyBtn'), sizeEl = $('size'), levelEl = $('level'), padEl = $('pad'), timerEl = $('timer');
+
+let N = 9, BR = 3, BC = 3;
+let puzzle = null, solution = null, board = null;
+let sel = null, won = false, showSol = false, startTime = 0, timerId = null;
+
+function fmt(ms) {
+  const s = Math.floor(ms / 1000);
+  return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+}
+function conflicts() {
+  const bad = new Set();
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const v = board[r][c];
+    if (!v) continue;
+    board[r][c] = 0;
+    if (!canPlace(board, N, BR, BC, r, c, v)) bad.add(r * N + c);
+    board[r][c] = v;
+  }
+  return bad;
+}
+function draw() {
+  const bad = conflicts();
+  const selVal = sel ? (showSol ? solution[sel.r][sel.c] : board[sel.r][sel.c]) : 0;
+  boardEl.style.setProperty('--cell-font', CONFIG[N].font);
+  boardEl.innerHTML = '';
+  for (let r = 0; r < N; r++) {
+    const tr = document.createElement('tr');
+    for (let c = 0; c < N; c++) {
+      const td = document.createElement('td');
+      const revealed = showSol && !puzzle[r][c];
+      const v = revealed ? solution[r][c] : board[r][c];
+      if (v) td.textContent = v;
+      if (puzzle[r][c]) td.classList.add('given');
+      if (revealed) td.classList.add('reveal');
+      if ((c + 1) % BC === 0 && c !== N - 1) td.classList.add('box-r');
+      if ((r + 1) % BR === 0 && r !== N - 1) td.classList.add('box-b');
+      if ((Math.floor(r / BR) + Math.floor(c / BC)) % 2 === 1) td.classList.add('alt');
+      if (selVal && v === selVal) td.classList.add('same');
+      if (sel && sel.r === r && sel.c === c) td.classList.add('sel');
+      if (!showSol && bad.has(r * N + c)) td.classList.add('bad');
+      td.addEventListener('click', () => { if (!won && !showSol) { sel = { r, c }; draw(); } });
+      tr.appendChild(td);
+    }
+    boardEl.appendChild(tr);
+  }
+  outEl.value = toText(puzzle);
+  return bad;
+}
+function checkWin() {
+  const bad = conflicts();
+  if (bad.size) return;
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (board[r][c] !== solution[r][c]) return;
+  won = true;
+  clearInterval(timerId);
+  wrapEl.classList.add('won');
+  bannerEl.innerHTML = 'You won!<small>Solved in ' + fmt(Date.now() - startTime) + '. Press New puzzle to play again.</small>';
+  bannerEl.classList.add('show');
+  padEl.querySelectorAll('button').forEach(b => b.disabled = true);
+  solBtn.disabled = true;
+  draw();
+}
+function setValue(v) {
+  if (won || showSol || !sel || puzzle[sel.r][sel.c]) return;
+  board[sel.r][sel.c] = v;
+  draw();
+  checkWin();
+}
+function buildPad() {
+  padEl.innerHTML = '';
+  for (let v = 1; v <= N; v++) {
+    const b = document.createElement('button');
+    b.textContent = v; b.setAttribute('aria-label', 'Enter ' + v);
+    b.addEventListener('click', () => setValue(v));
+    padEl.appendChild(b);
+  }
+  const e = document.createElement('button');
+  e.textContent = 'Erase'; e.style.gridColumn = 'span 2';
+  e.addEventListener('click', () => setValue(0));
+  padEl.appendChild(e);
+}
+function newGame() {
+  N = parseInt(sizeEl.value, 10); BR = CONFIG[N].br; BC = CONFIG[N].bc;
+  newBtn.disabled = true; statusEl.textContent = 'Generating a puzzle...';
+  setTimeout(() => {
+    const g = generate(N, BR, BC, CONFIG[N].clues[levelEl.value]);
+    puzzle = g.puzzle; solution = g.solution; board = puzzle.map(r => r.slice());
+    sel = null; won = false; showSol = false;
+    solBtn.textContent = 'Show solution'; solBtn.setAttribute('aria-pressed', 'false'); solBtn.disabled = false;
+    wrapEl.classList.remove('won'); bannerEl.classList.remove('show');
+    buildPad(); draw();
+    startTime = Date.now(); clearInterval(timerId);
+    timerEl.textContent = 'Time 00:00';
+    timerId = setInterval(() => { timerEl.textContent = 'Time ' + fmt(Date.now() - startTime); }, 1000);
+    statusEl.textContent = 'New ' + N + ' x ' + N + ' puzzle ready.';
+    newBtn.disabled = false;
+  }, 20);
+}
+function move(dr, dc) {
+  if (won || showSol || !board) return;
+  if (!sel) sel = { r: 0, c: 0 };
+  else sel = { r: (sel.r + dr + N) % N, c: (sel.c + dc + N) % N };
+  draw();
+}
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key >= '1' && e.key <= String(N)) { setValue(parseInt(e.key, 10)); }
+  else if (e.key === '0' || e.key === 'Backspace' || e.key === 'Delete') { setValue(0); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1, 0); }
+  else if (e.key === 'ArrowDown') { e.preventDefault(); move(1, 0); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); move(0, -1); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); move(0, 1); }
+});
+solBtn.addEventListener('click', () => {
+  if (!board || won) return;
+  showSol = !showSol;
+  solBtn.textContent = showSol ? 'Hide solution' : 'Show solution';
+  solBtn.setAttribute('aria-pressed', String(showSol));
+  padEl.querySelectorAll('button').forEach(b => b.disabled = showSol);
+  statusEl.textContent = showSol ? 'Solution shown. Hide it to keep playing.' : 'Back to your game.';
+  draw();
+});
+newBtn.addEventListener('click', newGame);
+sizeEl.addEventListener('change', newGame);
+levelEl.addEventListener('change', newGame);
+copyBtn.addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(outEl.value); }
+  catch (e) { outEl.select(); document.execCommand('copy'); }
+  statusEl.textContent = 'Copied. Paste it into the solver.';
+});
+newGame();
+</script>
+</body>
+</html>
